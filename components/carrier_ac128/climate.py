@@ -21,8 +21,7 @@ CONFIG_SCHEMA = climate_ir.climate_ir_with_receiver_schema(CarrierAC128Climate).
 
 
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
-    await climate_ir.register_climate_ir(var, config)
+    var = await climate_ir.new_climate_ir(config)
 
     if CONF_TIME_ID in config:
         time_source = await cg.get_variable(config[CONF_TIME_ID])
