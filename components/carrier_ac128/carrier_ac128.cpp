@@ -25,11 +25,11 @@ void CarrierAC128Climate::transmit_state() {
   auto *data = transmit.get_data();
   data->set_carrier_frequency(kCarrierFreq);
 
-  // Section 1: bytes 0-7
+  // Section 1: bytes 0-7 (LSB first, matches IRremoteESP8266 MSBfirst=false)
   data->mark(kHdrMark);
   data->space(kHdrSpace);
   for (uint8_t i = 0; i < 8; i++) {
-    for (int8_t bit = 7; bit >= 0; bit--) {
+    for (uint8_t bit = 0; bit < 8; bit++) {
       data->mark(kBitMark);
       data->space((bytes[i] & (1 << bit)) ? kOneSpace : kZeroSpace);
     }
@@ -41,11 +41,11 @@ void CarrierAC128Climate::transmit_state() {
   data->mark(kHdrMark);       // inter-section mark (4600us)
   data->space(kInterSpace);   // inter-section space (6700us)
 
-  // Section 2: bytes 8-15
+  // Section 2: bytes 8-15 (LSB first)
   data->mark(kHdr2Mark);
   data->space(kHdr2Space);
   for (uint8_t i = 8; i < 16; i++) {
-    for (int8_t bit = 7; bit >= 0; bit--) {
+    for (uint8_t bit = 0; bit < 8; bit++) {
       data->mark(kBitMark);
       data->space((bytes[i] & (1 << bit)) ? kOneSpace : kZeroSpace);
     }
@@ -173,9 +173,9 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
 
   uint8_t bytes[16] = {0};
 
-  // Read 64 bits (bytes 0-7), MSB first
+  // Read 64 bits (bytes 0-7), LSB first (matches IRremoteESP8266 MSBfirst=false)
   for (uint8_t i = 0; i < 8; i++) {
-    for (int8_t bit = 7; bit >= 0; bit--) {
+    for (uint8_t bit = 0; bit < 8; bit++) {
       if (!data.expect_mark(kBitMark))
         return false;
       if (data.expect_space(kOneSpace)) {
@@ -204,9 +204,9 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
   if (!data.expect_item(kHdr2Mark, kHdr2Space))
     return false;
 
-  // Read 64 bits (bytes 8-15), MSB first
+  // Read 64 bits (bytes 8-15), LSB first
   for (uint8_t i = 8; i < 16; i++) {
-    for (int8_t bit = 7; bit >= 0; bit--) {
+    for (uint8_t bit = 0; bit < 8; bit++) {
       if (!data.expect_mark(kBitMark))
         return false;
       if (data.expect_space(kOneSpace)) {
