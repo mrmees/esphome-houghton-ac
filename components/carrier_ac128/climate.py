@@ -13,9 +13,8 @@ CarrierAC128Climate = carrier_ac128_ns.class_(
     "CarrierAC128Climate", climate_ir.ClimateIR
 )
 
-CONFIG_SCHEMA = climate_ir.CLIMATE_IR_WITH_RECEIVER_SCHEMA.extend(
+CONFIG_SCHEMA = climate_ir.climate_ir_with_receiver_schema(CarrierAC128Climate).extend(
     {
-        cv.GenerateID(): cv.declare_id(CarrierAC128Climate),
         cv.Optional(CONF_TIME_ID): cv.use_id(time_component.RealTimeClock),
     }
 )
