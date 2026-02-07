@@ -1,4 +1,4 @@
-# ESPHome config for CARRIER_AC128 AC control
+# ESPHome config for RecPro/Houghton AC control (CARRIER_AC128 protocol)
 # Tested on ESP8285 ESP-01M IR transceiver module (GPIO4 TX, GPIO14 RX)
 
 esphome:

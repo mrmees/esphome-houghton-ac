@@ -1,6 +1,6 @@
 # CARRIER_AC128 IR Protocol Specification
 
-Reverse-engineered from ~360 raw IR captures of a Houghton (Carrier-manufactured) window AC unit's remote control. This is the only public byte-level documentation of this protocol's semantics.
+Reverse-engineered from ~360 raw IR captures of a Houghton window AC unit's remote control. This is the only public byte-level documentation of this protocol's semantics. Despite the protocol name, these units are manufactured by RecPro/Houghton, not by Carrier -- IRremoteESP8266 assigned the CARRIER_AC128 identifier.
 
 ## Overview
 

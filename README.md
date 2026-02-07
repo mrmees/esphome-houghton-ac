@@ -1,6 +1,6 @@
-# ESPHome Carrier AC128 Climate Component
+# ESPHome CARRIER_AC128 Climate Component
 
-Custom [ESPHome](https://esphome.io/) component for Houghton/Recpro RV AC units that use the **CARRIER_AC128** IR protocol. Creates a native Home Assistant climate entity directly from an ESP8266/ESP8285 IR blaster -- no MQTT, Node-RED, or Tasmota needed.
+Custom [ESPHome](https://esphome.io/) component for Houghton/RecPro RV AC units that use the **CARRIER_AC128** IR protocol. Creates a native Home Assistant climate entity directly from an ESP8266/ESP8285 IR blaster -- no MQTT, Node-RED, or Tasmota needed.
 
 This repository includes the **only public byte-level documentation** of the CARRIER_AC128 protocol, reverse-engineered from 398 raw IR captures.
 
@@ -100,10 +100,11 @@ When the physical remote is used (and an IR receiver is connected), the componen
 
 This component works with AC units that use the **CARRIER_AC128** IR protocol, including:
 
-- Houghton window AC units (manufactured by Carrier)
-- Other Carrier-branded units using the same protocol
+- RecPro RV air conditioners
+- Houghton window AC units
+- Other units whose remotes are identified as `CARRIER_AC128` by [IRremoteESP8266](https://github.com/crankyoldgit/IRremoteESP8266)
 
-If your AC remote is identified as `CARRIER_AC128` by [IRremoteESP8266](https://github.com/crankyoldgit/IRremoteESP8266), this component should work.
+Note: Despite the protocol name, these are **not** standard Carrier HVAC units. The CARRIER_AC128 protocol is used by RecPro/Houghton and possibly other OEM-branded units.
 
 ## Protocol Documentation
 
