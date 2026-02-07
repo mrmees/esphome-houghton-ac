@@ -30,7 +30,7 @@ Add the external component to your ESPHome YAML:
 
 ```yaml
 external_components:
-  - source: github://mrmees/esphome-carrier-ac128
+  - source: github://mrmees/esphome-houghton-ac
     components: [carrier_ac128]
 ```
 

@@ -23,7 +23,7 @@ logger:
   baud_rate: 0  # Disable serial logging (ESP-01 has limited pins)
 
 external_components:
-  - source: github://mrmees/esphome-carrier-ac128
+  - source: github://mrmees/esphome-houghton-ac
     components: [carrier_ac128]
 
 remote_transmitter:
