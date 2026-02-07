@@ -60,6 +60,8 @@ remote_receiver:
   pin:
     number: GPIO14
     inverted: true
+  idle: 30ms        # CARRIER_AC128 has a 20.6ms gap between sections
+  buffer_size: 350  # Full signal is ~267 transitions
 
 time:
   - platform: homeassistant
@@ -129,6 +131,7 @@ See [`docs/protocol-spec.md`](docs/protocol-spec.md) for the complete byte-level
 - Verify the `api:` section is configured in your ESPHome YAML
 
 **IR receiver not tracking remote:**
+- Ensure `idle: 30ms` and `buffer_size: 350` are set on the `remote_receiver` -- the CARRIER_AC128 signal has a 20.6ms gap between its two halves that exceeds ESPHome's default idle timeout
 - Verify `inverted: true` on the receiver pin (most IR demodulators output active-low)
 - Check that `receiver_id` is set in the climate config
 - Look for `carrier_ac128: Received:` messages in the ESPHome logs when pressing remote buttons

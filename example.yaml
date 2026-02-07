@@ -35,6 +35,8 @@ remote_receiver:
   pin:
     number: GPIO14
     inverted: true  # Most IR demodulators output active-low
+  idle: 30ms        # CARRIER_AC128 has a 20.6ms gap between sections
+  buffer_size: 350  # Full signal is ~267 transitions
 
 time:
   - platform: homeassistant
