@@ -1,6 +1,6 @@
 # ESPHome Carrier AC128 Climate Component
 
-Custom [ESPHome](https://esphome.io/) component for Carrier/Houghton window AC units that use the **CARRIER_AC128** IR protocol. Creates a native Home Assistant climate entity directly from an ESP8266/ESP8285 IR blaster -- no MQTT, Node-RED, or Tasmota needed.
+Custom [ESPHome](https://esphome.io/) component for Houghton/Recpro RV AC units that use the **CARRIER_AC128** IR protocol. Creates a native Home Assistant climate entity directly from an ESP8266/ESP8285 IR blaster -- no MQTT, Node-RED, or Tasmota needed.
 
 This repository includes the **only public byte-level documentation** of the CARRIER_AC128 protocol, reverse-engineered from 398 raw IR captures.
 
