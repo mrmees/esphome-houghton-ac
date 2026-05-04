@@ -16,11 +16,12 @@ This repository includes the **only public byte-level documentation** of the CAR
 
 ## Hardware
 
-You need an ESP8266 or ESP8285 with an IR LED (transmitter) and optionally an IR receiver/demodulator. Tested on an **ESP8285 ESP-01M IR transceiver module** with:
+Tested on an [**M5Stack NanoC6**](https://docs.m5stack.com/en/core/M5NanoC6) (ESP32-C6) paired with the [**M5Stack IR Unit**](https://shop.m5stack.com/products/ir-unit) over its Grove port:
 
-- IR TX on GPIO4
-- IR RX on GPIO14 (optional but recommended)
-- 5V power (onboard regulator)
+- IR TX on GPIO2 (Grove SDA / G2)
+- IR RX on GPIO1 (Grove SCL / G1)
+
+If you don't need to track the physical remote, you can skip the IR Unit entirely and use the **NanoC6's onboard IR LED on GPIO3** for transmit-only operation.
 
 Any ESP8266/ESP32 with an IR LED on any GPIO will work. The receiver is optional -- without it, the component still sends commands but won't track manual remote usage.
 
@@ -36,11 +37,11 @@ external_components:
 
 ## Configuration
 
-Minimal config (TX only):
+Minimal config — NanoC6 onboard IR LED, transmit only:
 
 ```yaml
 remote_transmitter:
-  pin: GPIO4
+  pin: GPIO3
   carrier_duty_percent: 50%
 
 climate:
@@ -48,17 +49,17 @@ climate:
     name: "My AC"
 ```
 
-Full config with receiver and clock sync:
+Full config — M5 IR Unit on the Grove port, with receive and clock sync:
 
 ```yaml
 remote_transmitter:
-  pin: GPIO4
+  pin: GPIO2
   carrier_duty_percent: 50%
 
 remote_receiver:
   id: ir_receiver
   pin:
-    number: GPIO14
+    number: GPIO1
     inverted: true
   idle: 30ms        # CARRIER_AC128 has a 20.6ms gap between sections
   buffer_size: 350  # Full signal is ~267 transitions
@@ -74,7 +75,7 @@ climate:
     receiver_id: ir_receiver   # optional: tracks remote usage
 ```
 
-See [`example.yaml`](example.yaml) for a complete working config for the ESP8285 ESP-01M module.
+See [`example.yaml`](example.yaml) for a complete working config for the M5 NanoC6 + IR Unit combo.
 
 ### Configuration Options
 
