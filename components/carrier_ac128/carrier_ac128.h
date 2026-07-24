@@ -2,6 +2,10 @@
 
 #include "esphome/components/climate_ir/climate_ir.h"
 
+#ifdef USE_SWITCH
+#include "esphome/components/switch/switch.h"
+#endif
+
 #ifdef USE_TIME
 #include "esphome/components/time/real_time_clock.h"
 #endif
@@ -38,6 +42,16 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
   void set_time_source(time::RealTimeClock *time_source) { this->time_source_ = time_source; }
 #endif
 
+  /// Turn the AC's front panel LED display on/off (re-sends the full state frame).
+  void set_display(bool display_on);
+  /// Set the stored display state without transmitting -- used to restore it at boot.
+  void set_display_state(bool display_on) { this->display_on_ = display_on; }
+  bool get_display() const { return this->display_on_; }
+
+#ifdef USE_SWITCH
+  void set_display_switch(switch_::Switch *display_switch) { this->display_switch_ = display_switch; }
+#endif
+
  protected:
   void transmit_state() override;
   bool on_receive(remote_base::RemoteReceiveData data) override;
@@ -46,6 +60,13 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
   uint8_t bcd_(uint8_t value) { return ((value / 10) << 4) | (value % 10); }
   uint8_t from_bcd_(uint8_t bcd) { return (bcd >> 4) * 10 + (bcd & 0x0F); }
   void build_state_(uint8_t *bytes);
+  void publish_display_state_();
+
+  bool display_on_{true};
+
+#ifdef USE_SWITCH
+  switch_::Switch *display_switch_{nullptr};
+#endif
 
 #ifdef USE_TIME
   time::RealTimeClock *time_source_{nullptr};

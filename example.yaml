@@ -67,6 +67,12 @@ time:
 
 climate:
   - platform: carrier_ac128
+    id: houghton_ac
     name: "Houghton AC"
     time_id: ha_time
     receiver_id: ir_receiver
+
+switch:
+  - platform: carrier_ac128
+    carrier_ac128_id: houghton_ac
+    name: "Display LEDs"

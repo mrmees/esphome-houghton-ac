@@ -57,6 +57,19 @@ void CarrierAC128Climate::transmit_state() {
   transmit.perform();
 }
 
+void CarrierAC128Climate::set_display(bool display_on) {
+  this->display_on_ = display_on;
+  this->transmit_state();
+  this->publish_display_state_();
+}
+
+void CarrierAC128Climate::publish_display_state_() {
+#ifdef USE_SWITCH
+  if (this->display_switch_ != nullptr)
+    this->display_switch_->publish_state(this->display_on_);
+#endif
+}
+
 void CarrierAC128Climate::build_state_(uint8_t *bytes) {
   // Byte 1: Header (always 0x16)
   bytes[0] = 0x16;
@@ -132,8 +145,8 @@ void CarrierAC128Climate::build_state_(uint8_t *bytes) {
                 this->preset.value() == climate::CLIMATE_PRESET_ECO;
   bytes[12] = eco_on ? 0x04 : 0x00;
 
-  // Byte 14: Lock (off) + LED display (on)
-  bytes[13] = 0x00;
+  // Byte 14: Lock (off) + LED display (bit 2 inverted: 0 = display on, 0x40 = display off)
+  bytes[13] = this->display_on_ ? 0x00 : 0x40;
 
   // Byte 15: Clock seconds (BCD)
   bytes[14] = bcd_(seconds);
@@ -284,6 +297,10 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
     this->preset = climate::CLIMATE_PRESET_SLEEP;
   else
     this->preset = climate::CLIMATE_PRESET_NONE;
+
+  // Decode LED display (byte 14 bit 2, inverted: set = display off)
+  this->display_on_ = (bytes[13] & 0x40) == 0;
+  this->publish_display_state_();
 
   this->publish_state();
   return true;

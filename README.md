@@ -11,6 +11,7 @@ This repository includes the **only public byte-level documentation** of the CAR
 - Fan speeds: Auto, Low, Medium, High
 - Temperature: 16-30 C / 60-86 F
 - Eco and Sleep presets
+- Optional switch entity for the AC's front panel LED display (turn the screen off at night)
 - Clock sync (sends current time with every command, just like the physical remote)
 - IR receive support -- tracks manual remote usage and updates the HA entity state
 
@@ -70,14 +71,22 @@ time:
 
 climate:
   - platform: carrier_ac128
+    id: my_ac
     name: "My AC"
     time_id: ha_time           # optional: syncs AC clock
     receiver_id: ir_receiver   # optional: tracks remote usage
+
+switch:
+  - platform: carrier_ac128    # optional: LED display on/off
+    carrier_ac128_id: my_ac
+    name: "Display"
 ```
 
 See [`example.yaml`](example.yaml) for a complete working config for the M5 NanoC6 + IR Unit combo.
 
 ### Configuration Options
+
+**`climate` platform:**
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
@@ -85,7 +94,23 @@ See [`example.yaml`](example.yaml) for a complete working config for the M5 Nano
 | `time_id` | No | -- | ID of a `time` component for clock sync |
 | `receiver_id` | No | -- | ID of a `remote_receiver` for tracking the physical remote |
 
-All standard ESPHome [climate](https://esphome.io/components/climate/) and [climate_ir](https://esphome.io/components/climate/climate_ir/) options are supported.
+**`switch` platform (LED display):**
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `name` | Yes | -- | Name of the switch entity in Home Assistant |
+| `carrier_ac128_id` | No | Only climate instance | ID of the `carrier_ac128` climate component to control |
+| `restore_mode` | No | `RESTORE_DEFAULT_ON` | Standard ESPHome switch restore mode |
+
+All standard ESPHome [climate](https://esphome.io/components/climate/), [climate_ir](https://esphome.io/components/climate/climate_ir/), and [switch](https://esphome.io/components/switch/) options are supported.
+
+### LED Display Switch
+
+The switch controls bit 2 of byte 14 -- the same flag the remote's display button toggles. Turning it on or off re-sends the complete state frame, so the AC's mode, temperature, and fan speed are unchanged.
+
+The switch is created as a config entity. It defaults to ON at boot and does **not** transmit at boot -- the stored value simply rides along with the next command. If the physical remote toggles the display and an IR receiver is configured, the switch state follows it.
+
+To surface it as a light in Home Assistant instead of a switch, wrap it in a [template light](https://www.home-assistant.io/integrations/light.template/) or use a switch-as-x helper.
 
 ## How It Works
 
