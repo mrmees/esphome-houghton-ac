@@ -43,6 +43,7 @@ sensor:
 external_components:
   - source: github://nebulight/esphome-houghton-ac
     components: [carrier_ac128]
+    refresh: 0s   # always pull latest; default caches the clone for 1 day
 
 remote_transmitter:
   pin: GPIO2
