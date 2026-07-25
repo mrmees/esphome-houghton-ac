@@ -29,7 +29,7 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
  public:
   CarrierAC128Climate()
       : climate_ir::ClimateIR(
-            16.0f, 30.0f, 5.0f / 9.0f,  // min, max, step -- see set_temperature_step()
+            16.0f, 30.0f, 1.0f,  // min, max, step -- see set_temperature_step()
             true,   // supports DRY (dehumidify)
             true,   // supports FAN_ONLY
             {climate::CLIMATE_FAN_AUTO, climate::CLIMATE_FAN_LOW,
@@ -52,10 +52,11 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
   void set_display_switch(switch_::Switch *display_switch) { this->display_switch_ = display_switch; }
 #endif
 
-  /// Step Home Assistant sees, in Celsius. HA treats this as its display
-  /// precision *after* converting to the user's unit, and rounds to whole
-  /// numbers unless it is exactly 0.5 or 0.1 -- so 5/9 (one whole degree
-  /// Fahrenheit) keeps a Fahrenheit UI on integers, as does 1.0 for Celsius.
+  /// Step Home Assistant sees. HA buckets this into a display precision --
+  /// >= 1 whole, >= 0.5 halves, else tenths -- and applies it *after*
+  /// converting to the user's unit, so anything under 1.0 puts a Fahrenheit
+  /// dashboard on half degrees. It is also the card's +/- increment, which HA
+  /// does not unit-convert, so 1.0 steps by a single degree in either unit.
   void set_temperature_step(float step) { this->temperature_step_ = step; }
   void set_temperature_range(float min_temp, float max_temp) {
     this->minimum_temperature_ = min_temp;

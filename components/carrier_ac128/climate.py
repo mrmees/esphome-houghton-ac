@@ -12,13 +12,14 @@ CONF_TEMPERATURE_UNIT = "temperature_unit"
 
 # (visual step, min, max) in Celsius, plus the AC's own display flag.
 #
-# Home Assistant applies the step as its display precision *after* converting
-# to the user's unit, and only 0.5 and 0.1 get fractional rounding -- anything
-# else lands on whole numbers. 5/9 C is exactly 1 F, so a Fahrenheit UI steps
-# and displays in whole degrees; 1.0 does the same for a Celsius UI.
+# The step has to be >= 1.0 in both cases. Home Assistant buckets it into a
+# display precision (>= 1 whole, >= 0.5 halves, else tenths) and applies that
+# after converting to the user's unit, so a sub-1.0 step lands a Fahrenheit
+# dashboard on half degrees. HA does not unit-convert the step itself, so 1.0
+# reads as one degree in whichever unit is on screen. Only min/max differ.
 TEMPERATURE_UNITS = {
     # 15.5556 C == 60 F, the lowest set point the remote offers
-    "fahrenheit": (5.0 / 9.0, 15.5556, 30.0, False),
+    "fahrenheit": (1.0, 15.5556, 30.0, False),
     "celsius": (1.0, 16.0, 30.0, True),
 }
 

@@ -286,8 +286,17 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
     default:  this->fan_mode = climate::CLIMATE_FAN_AUTO; break;
   }
 
-  // Decode temperature (byte 7, Celsius BCD)
-  this->target_temperature = (float) from_bcd_(bytes[6]);
+  // Decode temperature. The frame carries the set point twice -- byte 7 in
+  // whole Celsius, byte 12 in whole Fahrenheit -- so read back whichever unit
+  // we set in. Reading Celsius while running in Fahrenheit quantizes the set
+  // point on every frame we hear, including our own transmissions if the
+  // receiver can see the emitter: 80F becomes 27C, which is 80.6F.
+  uint8_t temp_f = from_bcd_(bytes[11]);
+  if (!this->celsius_display_ && temp_f >= 60 && temp_f <= 86) {
+    this->target_temperature = (temp_f - 32.0f) * 5.0f / 9.0f;
+  } else {
+    this->target_temperature = (float) from_bcd_(bytes[6]);
+  }
 
   // Decode presets (eco and sleep are mutually exclusive in ESPHome's model)
   bool eco = (bytes[12] & 0x04) != 0;

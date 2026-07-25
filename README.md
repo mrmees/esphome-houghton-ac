@@ -110,14 +110,14 @@ All standard ESPHome [climate](https://esphome.io/components/climate/), [climate
 
 ### Temperature Unit
 
-The AC only accepts whole degrees, and the protocol carries the set point twice -- once in Celsius (byte 7) and once in Fahrenheit (byte 12). ESPHome, though, always speaks Celsius to Home Assistant, which converts for display. HA reuses the step this component advertises as its display **precision**, applying it *after* conversion, so a step chosen for one unit produces fractions in the other.
+The AC only accepts whole degrees, and the protocol carries the set point twice -- once in Celsius (byte 7) and once in Fahrenheit (byte 12). ESPHome always speaks Celsius to Home Assistant, which converts for display, so getting whole degrees on screen takes care in both directions.
 
-`temperature_unit` picks which unit gets clean whole numbers:
+`temperature_unit` sets the range and which unit the component treats as authoritative:
 
-| Value | Step sent to HA | Result |
-|-------|-----------------|--------|
-| `fahrenheit` (default) | 5/9 °C, exactly 1.0 °F | Whole °F in HA, range 60-86 °F, AC panel shows °F |
-| `celsius` | 1.0 °C | Whole °C in HA, range 16-30 °C, AC panel shows °C |
+| Value | Range | AC panel |
+|-------|-------|----------|
+| `fahrenheit` (default) | 60-86 °F | Shows °F |
+| `celsius` | 16-30 °C | Shows °C |
 
 ```yaml
 climate:
@@ -126,11 +126,14 @@ climate:
     temperature_unit: celsius
 ```
 
-The setting also drives the Celsius flag in byte 8 bit 5, so the AC's own front panel displays the same unit as your dashboard.
+The setting drives the Celsius flag in byte 8 bit 5, so the AC's own front panel displays the same unit as your dashboard, and it decides which of the two set point bytes is read back when a frame is received.
 
-Why 5/9 rather than 0.5: HA's `show_temp()` rounds to halves when the precision is exactly `0.5` and to tenths at exactly `0.1`, and to whole numbers otherwise. A 0.5 °C step therefore snapped a Fahrenheit dashboard onto `80.5`, `81.5`, and so on. 5/9 °C is one whole °F, which sidesteps both special cases.
+Two details make whole degrees work, both of which bit this component before:
 
-An explicit [`visual:`](https://esphome.io/components/climate/#config-vars) block still overrides all of this if you want something else -- ESPHome applies visual overrides on top of the component's own traits.
+- **The advertised step must be at least 1.0.** Home Assistant maps it to a display precision -- `>= 1` whole, `>= 0.5` halves, otherwise tenths -- and applies that *after* converting to your unit. A 0.5 °C step therefore rounded a Fahrenheit dashboard onto `80.5`, `81.5`, and so on. HA does not unit-convert the step itself, so `1.0` reads as one degree either way.
+- **The receive path reads back the unit you set in.** Byte 7 is whole Celsius, so decoding it while running in Fahrenheit re-quantizes the set point every time a frame is heard -- including the device's own transmissions, if the IR receiver can see the emitter. 80 °F would become 27 °C, which is 80.6 °F.
+
+An explicit [`visual:`](https://esphome.io/components/climate/#config-vars) block still overrides the range and step if you want something else -- ESPHome applies visual overrides on top of the component's own traits.
 
 ### LED Display Switch
 
