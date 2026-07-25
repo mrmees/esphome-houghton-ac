@@ -40,6 +40,23 @@ sensor:
     unit_of_measurement: "Signal %"
     entity_category: diagnostic
 
+  # Room temperature shown on the climate card. The AC has no exposed sensor,
+  # so this pulls an averaged value from HA -- create a "Combine the state of
+  # several sensors" (mean) helper, then point entity_id at it below.
+  # Display only: the AC still cycles off its own internal sensor.
+  - platform: homeassistant
+    id: van_avg_temp
+    entity_id: sensor.van_average_temperature   # <-- change to your helper
+    internal: true
+    filters:
+      - lambda: return (x - 32.0) * 5.0 / 9.0;  # drop this if HA reports °C
+
+  # Same idea for humidity -- no conversion needed, % is % in both systems.
+  - platform: homeassistant
+    id: van_avg_humidity
+    entity_id: sensor.van_average_humidity      # <-- change to your helper
+    internal: true
+
 external_components:
   - source: github://nebulight/esphome-houghton-ac
     components: [carrier_ac128]
@@ -72,6 +89,8 @@ climate:
     name: "Houghton AC"
     time_id: ha_time
     receiver_id: ir_receiver
+    sensor: van_avg_temp
+    humidity_sensor: van_avg_humidity
 
 switch:
   - platform: carrier_ac128

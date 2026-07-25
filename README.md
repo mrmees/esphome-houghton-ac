@@ -12,6 +12,7 @@ This repository includes the **only public byte-level documentation** of the CAR
 - Temperature: 16-30 C / 60-86 F
 - Eco and Sleep presets
 - Optional switch entity for the AC's front panel LED display (turn the screen off at night)
+- Optional room temperature and humidity display, sourced from any Home Assistant sensor or averaging helper
 - Clock sync (sends current time with every command, just like the physical remote)
 - IR receive support -- tracks manual remote usage and updates the HA entity state
 
@@ -93,6 +94,8 @@ See [`example.yaml`](example.yaml) for a complete working config for the M5 Nano
 | `name` | Yes | -- | Name of the climate entity in Home Assistant |
 | `time_id` | No | -- | ID of a `time` component for clock sync |
 | `receiver_id` | No | -- | ID of a `remote_receiver` for tracking the physical remote |
+| `sensor` | No | -- | ID of a sensor to show as the current room temperature |
+| `humidity_sensor` | No | -- | ID of a sensor to show as the current room humidity |
 
 **`switch` platform (LED display):**
 
@@ -111,6 +114,42 @@ The switch controls bit 2 of byte 14 -- the same flag the remote's display butto
 The switch is created as a config entity. It defaults to ON at boot and does **not** transmit at boot -- the stored value simply rides along with the next command. If the physical remote toggles the display and an IR receiver is configured, the switch state follows it.
 
 To surface it as a light in Home Assistant instead of a switch, wrap it in a [template light](https://www.home-assistant.io/integrations/light.template/) or use a switch-as-x helper.
+
+### Room Temperature and Humidity
+
+The AC's own sensor isn't exposed over IR -- the protocol only carries commands, never readings -- so the climate entity shows no current temperature by default. You can feed it any sensor Home Assistant already knows about, including an average of several.
+
+**1. Create a helper in Home Assistant** (Settings -> Devices & Services -> Helpers -> Create helper -> **Combine the state of several sensors**), set the statistic to **Mean**, and pick your temperature sensors. Repeat for humidity. This is where you choose which sensors count -- add or remove them later without touching YAML.
+
+**2. Point the component at the helpers:**
+
+```yaml
+sensor:
+  - platform: homeassistant
+    id: avg_temp
+    entity_id: sensor.average_temperature
+    internal: true
+    filters:
+      - lambda: return (x - 32.0) * 5.0 / 9.0;  # only if HA reports °F
+
+  - platform: homeassistant
+    id: avg_humidity
+    entity_id: sensor.average_humidity
+    internal: true
+
+climate:
+  - platform: carrier_ac128
+    name: "My AC"
+    sensor: avg_temp
+    humidity_sensor: avg_humidity
+```
+
+Notes:
+
+- **Units.** ESPHome climate works in Celsius internally, so a Fahrenheit source needs the conversion filter above or 74°F arrives as 74°C. Humidity needs no conversion.
+- **`internal: true`** stops ESPHome from publishing a duplicate sensor entity back to Home Assistant.
+- **Display only.** The AC still cycles on its own internal sensor -- the protocol has no field for an external temperature, so this changes what the card reads, not how the unit behaves. To regulate on the average instead, drive the setpoint from an HA automation or something like [Better Thermostat](https://github.com/KartoffelToby/better_thermostat).
+- **No humidity setpoint.** Dehumidify is a plain on/off mode in this protocol, so Home Assistant shows current humidity but offers no target.
 
 ## How It Works
 
