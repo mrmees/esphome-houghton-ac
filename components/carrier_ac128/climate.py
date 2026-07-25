@@ -18,8 +18,11 @@ CONF_TEMPERATURE_UNIT = "temperature_unit"
 # dashboard on half degrees. HA does not unit-convert the step itself, so 1.0
 # reads as one degree in whichever unit is on screen. Only min/max differ.
 TEMPERATURE_UNITS = {
-    # 15.5556 C == 60 F, the lowest set point the remote offers
-    "fahrenheit": (1.0, 15.5556, 30.0, False),
+    # The floor sits a little under 60 F, the lowest set point the remote
+    # offers. Home Assistant validates against the Celsius range and converts
+    # 60 F to 15.555555555555555, which an exact 15.5556 floor rejects. 15.5
+    # still displays as 60 F, and the transmit path clamps to 60-86 F anyway.
+    "fahrenheit": (1.0, 15.5, 30.0, False),
     "celsius": (1.0, 16.0, 30.0, True),
 }
 
