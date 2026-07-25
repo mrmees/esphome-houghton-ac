@@ -9,18 +9,21 @@ This repository includes the **only public byte-level documentation** of the CAR
 - Native Home Assistant climate entity via ESPHome API (auto-discovered, no configuration needed in HA)
 - All AC modes: Cool, Heat, Fan Only, Dehumidify, Maintain (Heat+Cool)
 - Fan speeds: Auto, Low, Medium, High
-- Temperature: 16-30 C / 60-86 F
+- Temperature: 60-86 °F or 16-30 °C, whole degrees in either unit
 - Eco and Sleep presets
+- Optional switch entity for the AC's front panel LED display (turn the screen off at night)
+- Optional room temperature and humidity display, sourced from any Home Assistant sensor or averaging helper
 - Clock sync (sends current time with every command, just like the physical remote)
 - IR receive support -- tracks manual remote usage and updates the HA entity state
 
 ## Hardware
 
-You need an ESP8266 or ESP8285 with an IR LED (transmitter) and optionally an IR receiver/demodulator. Tested on an **ESP8285 ESP-01M IR transceiver module** with:
+Tested on an [**M5Stack NanoC6**](https://docs.m5stack.com/en/core/M5NanoC6) (ESP32-C6) paired with the [**M5Stack IR Unit**](https://shop.m5stack.com/products/ir-unit) over its Grove port:
 
-- IR TX on GPIO4
-- IR RX on GPIO14 (optional but recommended)
-- 5V power (onboard regulator)
+- IR TX on GPIO2 (Grove SDA / G2)
+- IR RX on GPIO1 (Grove SCL / G1)
+
+If you don't need to track the physical remote, you can skip the IR Unit entirely and use the **NanoC6's onboard IR LED on GPIO3** for transmit-only operation.
 
 Any ESP8266/ESP32 with an IR LED on any GPIO will work. The receiver is optional -- without it, the component still sends commands but won't track manual remote usage.
 
@@ -36,11 +39,11 @@ external_components:
 
 ## Configuration
 
-Minimal config (TX only):
+Minimal config — NanoC6 onboard IR LED, transmit only:
 
 ```yaml
 remote_transmitter:
-  pin: GPIO4
+  pin: GPIO3
   carrier_duty_percent: 50%
 
 climate:
@@ -48,17 +51,17 @@ climate:
     name: "My AC"
 ```
 
-Full config with receiver and clock sync:
+Full config — M5 IR Unit on the Grove port, with receive and clock sync:
 
 ```yaml
 remote_transmitter:
-  pin: GPIO4
+  pin: GPIO2
   carrier_duty_percent: 50%
 
 remote_receiver:
   id: ir_receiver
   pin:
-    number: GPIO14
+    number: GPIO1
     inverted: true
   idle: 30ms        # CARRIER_AC128 has a 20.6ms gap between sections
   buffer_size: 350  # Full signal is ~267 transitions
@@ -69,22 +72,112 @@ time:
 
 climate:
   - platform: carrier_ac128
+    id: my_ac
     name: "My AC"
     time_id: ha_time           # optional: syncs AC clock
     receiver_id: ir_receiver   # optional: tracks remote usage
+
+switch:
+  - platform: carrier_ac128    # optional: LED display on/off
+    carrier_ac128_id: my_ac
+    name: "Display"
 ```
 
-See [`example.yaml`](example.yaml) for a complete working config for the ESP8285 ESP-01M module.
+See [`example.yaml`](example.yaml) for a complete working config for the M5 NanoC6 + IR Unit combo.
 
 ### Configuration Options
+
+**`climate` platform:**
 
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
 | `name` | Yes | -- | Name of the climate entity in Home Assistant |
+| `temperature_unit` | No | `fahrenheit` | `fahrenheit` or `celsius` -- see below |
 | `time_id` | No | -- | ID of a `time` component for clock sync |
 | `receiver_id` | No | -- | ID of a `remote_receiver` for tracking the physical remote |
+| `sensor` | No | -- | ID of a sensor to show as the current room temperature |
+| `humidity_sensor` | No | -- | ID of a sensor to show as the current room humidity |
 
-All standard ESPHome [climate](https://esphome.io/components/climate/) and [climate_ir](https://esphome.io/components/climate/climate_ir/) options are supported.
+**`switch` platform (LED display):**
+
+| Option | Required | Default | Description |
+|--------|----------|---------|-------------|
+| `name` | Yes | -- | Name of the switch entity in Home Assistant |
+| `carrier_ac128_id` | No | Only climate instance | ID of the `carrier_ac128` climate component to control |
+| `restore_mode` | No | `RESTORE_DEFAULT_ON` | Standard ESPHome switch restore mode |
+
+All standard ESPHome [climate](https://esphome.io/components/climate/), [climate_ir](https://esphome.io/components/climate/climate_ir/), and [switch](https://esphome.io/components/switch/) options are supported.
+
+### Temperature Unit
+
+The AC only accepts whole degrees, and the protocol carries the set point twice -- once in Celsius (byte 7) and once in Fahrenheit (byte 12). ESPHome always speaks Celsius to Home Assistant, which converts for display, so getting whole degrees on screen takes care in both directions.
+
+`temperature_unit` sets the range and which unit the component treats as authoritative:
+
+| Value | Range | AC panel |
+|-------|-------|----------|
+| `fahrenheit` (default) | 60-86 °F | Shows °F |
+| `celsius` | 16-30 °C | Shows °C |
+
+```yaml
+climate:
+  - platform: carrier_ac128
+    name: "My AC"
+    temperature_unit: celsius
+```
+
+The setting drives the Celsius flag in byte 8 bit 5, so the AC's own front panel displays the same unit as your dashboard, and it decides which of the two set point bytes is read back when a frame is received.
+
+Two details make whole degrees work, both of which bit this component before:
+
+- **The advertised step must be at least 1.0.** Home Assistant maps it to a display precision -- `>= 1` whole, `>= 0.5` halves, otherwise tenths -- and applies that *after* converting to your unit. A 0.5 °C step therefore rounded a Fahrenheit dashboard onto `80.5`, `81.5`, and so on. HA does not unit-convert the step itself, so `1.0` reads as one degree either way.
+- **The receive path reads back the unit you set in.** Byte 7 is whole Celsius, so decoding it while running in Fahrenheit re-quantizes the set point every time a frame is heard -- including the device's own transmissions, if the IR receiver can see the emitter. 80 °F would become 27 °C, which is 80.6 °F.
+
+An explicit [`visual:`](https://esphome.io/components/climate/#config-vars) block still overrides the range and step if you want something else -- ESPHome applies visual overrides on top of the component's own traits.
+
+### LED Display Switch
+
+The switch controls bit 2 of byte 14 -- the same flag the remote's display button toggles. Turning it on or off re-sends the complete state frame, so the AC's mode, temperature, and fan speed are unchanged.
+
+The switch is created as a config entity. It defaults to ON at boot and does **not** transmit at boot -- the stored value simply rides along with the next command. If the physical remote toggles the display and an IR receiver is configured, the switch state follows it.
+
+To surface it as a light in Home Assistant instead of a switch, wrap it in a [template light](https://www.home-assistant.io/integrations/light.template/) or use a switch-as-x helper.
+
+### Room Temperature and Humidity
+
+The AC's own sensor isn't exposed over IR -- the protocol only carries commands, never readings -- so the climate entity shows no current temperature by default. You can feed it any sensor Home Assistant already knows about, including an average of several.
+
+**1. Create a helper in Home Assistant** (Settings -> Devices & Services -> Helpers -> Create helper -> **Combine the state of several sensors**), set the statistic to **Mean**, and pick your temperature sensors. Repeat for humidity. This is where you choose which sensors count -- add or remove them later without touching YAML.
+
+**2. Point the component at the helpers:**
+
+```yaml
+sensor:
+  - platform: homeassistant
+    id: avg_temp
+    entity_id: sensor.average_temperature
+    internal: true
+    filters:
+      - lambda: return (x - 32.0) * 5.0 / 9.0;  # only if HA reports °F
+
+  - platform: homeassistant
+    id: avg_humidity
+    entity_id: sensor.average_humidity
+    internal: true
+
+climate:
+  - platform: carrier_ac128
+    name: "My AC"
+    sensor: avg_temp
+    humidity_sensor: avg_humidity
+```
+
+Notes:
+
+- **Units.** ESPHome climate works in Celsius internally, so a Fahrenheit source needs the conversion filter above or 74°F arrives as 74°C. Humidity needs no conversion.
+- **`internal: true`** stops ESPHome from publishing a duplicate sensor entity back to Home Assistant.
+- **Display only.** The AC still cycles on its own internal sensor -- the protocol has no field for an external temperature, so this changes what the card reads, not how the unit behaves. To regulate on the average instead, drive the setpoint from an HA automation or something like [Better Thermostat](https://github.com/KartoffelToby/better_thermostat).
+- **No humidity setpoint.** Dehumidify is a plain on/off mode in this protocol, so Home Assistant shows current humidity but offers no target.
 
 ## How It Works
 

@@ -57,6 +57,19 @@ void CarrierAC128Climate::transmit_state() {
   transmit.perform();
 }
 
+void CarrierAC128Climate::set_display(bool display_on) {
+  this->display_on_ = display_on;
+  this->transmit_state();
+  this->publish_display_state_();
+}
+
+void CarrierAC128Climate::publish_display_state_() {
+#ifdef USE_SWITCH
+  if (this->display_switch_ != nullptr)
+    this->display_switch_->publish_state(this->display_on_);
+#endif
+}
+
 void CarrierAC128Climate::build_state_(uint8_t *bytes) {
   // Byte 1: Header (always 0x16)
   bytes[0] = 0x16;
@@ -109,6 +122,7 @@ void CarrierAC128Climate::build_state_(uint8_t *bytes) {
   //   Bit 5 (0x8): Celsius display flag
   //   Bit 7 (0x2): Sleep mode
   uint8_t byte8_flags = 0;
+  if (this->celsius_display_) byte8_flags |= 0x8;
   bool sleep_on = this->preset.has_value() &&
                   this->preset.value() == climate::CLIMATE_PRESET_SLEEP;
   if (sleep_on) byte8_flags |= 0x2;
@@ -132,8 +146,8 @@ void CarrierAC128Climate::build_state_(uint8_t *bytes) {
                 this->preset.value() == climate::CLIMATE_PRESET_ECO;
   bytes[12] = eco_on ? 0x04 : 0x00;
 
-  // Byte 14: Lock (off) + LED display (on)
-  bytes[13] = 0x00;
+  // Byte 14: Lock (off) + LED display (bit 2 inverted: 0 = display on, 0x40 = display off)
+  bytes[13] = this->display_on_ ? 0x00 : 0x40;
 
   // Byte 15: Clock seconds (BCD)
   bytes[14] = bcd_(seconds);
@@ -272,8 +286,17 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
     default:  this->fan_mode = climate::CLIMATE_FAN_AUTO; break;
   }
 
-  // Decode temperature (byte 7, Celsius BCD)
-  this->target_temperature = (float) from_bcd_(bytes[6]);
+  // Decode temperature. The frame carries the set point twice -- byte 7 in
+  // whole Celsius, byte 12 in whole Fahrenheit -- so read back whichever unit
+  // we set in. Reading Celsius while running in Fahrenheit quantizes the set
+  // point on every frame we hear, including our own transmissions if the
+  // receiver can see the emitter: 80F becomes 27C, which is 80.6F.
+  uint8_t temp_f = from_bcd_(bytes[11]);
+  if (!this->celsius_display_ && temp_f >= 60 && temp_f <= 86) {
+    this->target_temperature = (temp_f - 32.0f) * 5.0f / 9.0f;
+  } else {
+    this->target_temperature = (float) from_bcd_(bytes[6]);
+  }
 
   // Decode presets (eco and sleep are mutually exclusive in ESPHome's model)
   bool eco = (bytes[12] & 0x04) != 0;
@@ -284,6 +307,10 @@ bool CarrierAC128Climate::on_receive(remote_base::RemoteReceiveData data) {
     this->preset = climate::CLIMATE_PRESET_SLEEP;
   else
     this->preset = climate::CLIMATE_PRESET_NONE;
+
+  // Decode LED display (byte 14 bit 2, inverted: set = display off)
+  this->display_on_ = (bytes[13] & 0x40) == 0;
+  this->publish_display_state_();
 
   this->publish_state();
   return true;

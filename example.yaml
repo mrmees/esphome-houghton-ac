@@ -1,11 +1,14 @@
-# ESPHome config for RecPro/Houghton AC control (CARRIER_AC128 protocol)
-# Tested on ESP8285 ESP-01M IR transceiver module (GPIO4 TX, GPIO14 RX)
-
 esphome:
   name: ac-controller
+  name_add_mac_suffix: false
 
-esp8266:
-  board: esp01_1m
+esp32:
+  board: esp32-c6-devkitm-1
+  variant: esp32c6
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    version: recommended
 
 wifi:
   ssid: !secret wifi_ssid
@@ -20,23 +23,61 @@ ota:
 
 logger:
   level: DEBUG
-  baud_rate: 0  # Disable serial logging (ESP-01 has limited pins)
+  baud_rate: 0
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "WiFi Signal Strength"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: diagnostic
+
+  # Room temperature shown on the climate card. The AC has no exposed sensor,
+  # so this pulls an averaged value from HA -- create a "Combine the state of
+  # several sensors" (mean) helper, then point entity_id at it below.
+  # Display only: the AC still cycles off its own internal sensor.
+  - platform: homeassistant
+    id: van_avg_temp
+    entity_id: sensor.van_average_temperature   # <-- change to your helper
+    internal: true
+    filters:
+      - lambda: return (x - 32.0) * 5.0 / 9.0;  # drop this if HA reports °C
+
+  # Same idea for humidity -- no conversion needed, % is % in both systems.
+  - platform: homeassistant
+    id: van_avg_humidity
+    entity_id: sensor.van_average_humidity      # <-- change to your helper
+    internal: true
 
 external_components:
-  - source: github://mrmees/esphome-houghton-ac
+  - source: github://nebulight/esphome-houghton-ac
     components: [carrier_ac128]
+    refresh: 0s   # always pull latest; default caches the clone for 1 day
 
 remote_transmitter:
-  pin: GPIO4
+  pin: GPIO2
   carrier_duty_percent: 50%
+  non_blocking: True
 
 remote_receiver:
   id: ir_receiver
   pin:
-    number: GPIO14
-    inverted: true  # Most IR demodulators output active-low
-  idle: 30ms        # CARRIER_AC128 has a 20.6ms gap between sections
-  buffer_size: 350  # Full signal is ~267 transitions
+    number: GPIO1
+    mode:
+      input: true
+      pullup: true
+    inverted: true
+  idle: 30ms
+  filter: 100us
+  buffer_size: 10kb
 
 time:
   - platform: homeassistant
@@ -44,6 +85,14 @@ time:
 
 climate:
   - platform: carrier_ac128
+    id: houghton_ac
     name: "Houghton AC"
     time_id: ha_time
     receiver_id: ir_receiver
+    sensor: van_avg_temp
+    humidity_sensor: van_avg_humidity
+
+switch:
+  - platform: carrier_ac128
+    carrier_ac128_id: houghton_ac
+    name: "Display LEDs"
