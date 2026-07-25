@@ -29,7 +29,7 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
  public:
   CarrierAC128Climate()
       : climate_ir::ClimateIR(
-            16.0f, 30.0f, 0.5f,  // min, max, step (0.5C gives ~1F precision)
+            16.0f, 30.0f, 5.0f / 9.0f,  // min, max, step -- see set_temperature_step()
             true,   // supports DRY (dehumidify)
             true,   // supports FAN_ONLY
             {climate::CLIMATE_FAN_AUTO, climate::CLIMATE_FAN_LOW,
@@ -52,6 +52,18 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
   void set_display_switch(switch_::Switch *display_switch) { this->display_switch_ = display_switch; }
 #endif
 
+  /// Step Home Assistant sees, in Celsius. HA treats this as its display
+  /// precision *after* converting to the user's unit, and rounds to whole
+  /// numbers unless it is exactly 0.5 or 0.1 -- so 5/9 (one whole degree
+  /// Fahrenheit) keeps a Fahrenheit UI on integers, as does 1.0 for Celsius.
+  void set_temperature_step(float step) { this->temperature_step_ = step; }
+  void set_temperature_range(float min_temp, float max_temp) {
+    this->minimum_temperature_ = min_temp;
+    this->maximum_temperature_ = max_temp;
+  }
+  /// Unit shown on the AC's own front panel (byte 8 bit 5).
+  void set_celsius_display(bool celsius) { this->celsius_display_ = celsius; }
+
  protected:
   void transmit_state() override;
   bool on_receive(remote_base::RemoteReceiveData data) override;
@@ -63,6 +75,7 @@ class CarrierAC128Climate : public climate_ir::ClimateIR {
   void publish_display_state_();
 
   bool display_on_{true};
+  bool celsius_display_{false};
 
 #ifdef USE_SWITCH
   switch_::Switch *display_switch_{nullptr};

@@ -9,7 +9,7 @@ This repository includes the **only public byte-level documentation** of the CAR
 - Native Home Assistant climate entity via ESPHome API (auto-discovered, no configuration needed in HA)
 - All AC modes: Cool, Heat, Fan Only, Dehumidify, Maintain (Heat+Cool)
 - Fan speeds: Auto, Low, Medium, High
-- Temperature: 16-30 C / 60-86 F
+- Temperature: 60-86 °F or 16-30 °C, whole degrees in either unit
 - Eco and Sleep presets
 - Optional switch entity for the AC's front panel LED display (turn the screen off at night)
 - Optional room temperature and humidity display, sourced from any Home Assistant sensor or averaging helper
@@ -92,6 +92,7 @@ See [`example.yaml`](example.yaml) for a complete working config for the M5 Nano
 | Option | Required | Default | Description |
 |--------|----------|---------|-------------|
 | `name` | Yes | -- | Name of the climate entity in Home Assistant |
+| `temperature_unit` | No | `fahrenheit` | `fahrenheit` or `celsius` -- see below |
 | `time_id` | No | -- | ID of a `time` component for clock sync |
 | `receiver_id` | No | -- | ID of a `remote_receiver` for tracking the physical remote |
 | `sensor` | No | -- | ID of a sensor to show as the current room temperature |
@@ -106,6 +107,30 @@ See [`example.yaml`](example.yaml) for a complete working config for the M5 Nano
 | `restore_mode` | No | `RESTORE_DEFAULT_ON` | Standard ESPHome switch restore mode |
 
 All standard ESPHome [climate](https://esphome.io/components/climate/), [climate_ir](https://esphome.io/components/climate/climate_ir/), and [switch](https://esphome.io/components/switch/) options are supported.
+
+### Temperature Unit
+
+The AC only accepts whole degrees, and the protocol carries the set point twice -- once in Celsius (byte 7) and once in Fahrenheit (byte 12). ESPHome, though, always speaks Celsius to Home Assistant, which converts for display. HA reuses the step this component advertises as its display **precision**, applying it *after* conversion, so a step chosen for one unit produces fractions in the other.
+
+`temperature_unit` picks which unit gets clean whole numbers:
+
+| Value | Step sent to HA | Result |
+|-------|-----------------|--------|
+| `fahrenheit` (default) | 5/9 °C, exactly 1.0 °F | Whole °F in HA, range 60-86 °F, AC panel shows °F |
+| `celsius` | 1.0 °C | Whole °C in HA, range 16-30 °C, AC panel shows °C |
+
+```yaml
+climate:
+  - platform: carrier_ac128
+    name: "My AC"
+    temperature_unit: celsius
+```
+
+The setting also drives the Celsius flag in byte 8 bit 5, so the AC's own front panel displays the same unit as your dashboard.
+
+Why 5/9 rather than 0.5: HA's `show_temp()` rounds to halves when the precision is exactly `0.5` and to tenths at exactly `0.1`, and to whole numbers otherwise. A 0.5 °C step therefore snapped a Fahrenheit dashboard onto `80.5`, `81.5`, and so on. 5/9 °C is one whole °F, which sidesteps both special cases.
+
+An explicit [`visual:`](https://esphome.io/components/climate/#config-vars) block still overrides all of this if you want something else -- ESPHome applies visual overrides on top of the component's own traits.
 
 ### LED Display Switch
 

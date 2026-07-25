@@ -122,6 +122,7 @@ void CarrierAC128Climate::build_state_(uint8_t *bytes) {
   //   Bit 5 (0x8): Celsius display flag
   //   Bit 7 (0x2): Sleep mode
   uint8_t byte8_flags = 0;
+  if (this->celsius_display_) byte8_flags |= 0x8;
   bool sleep_on = this->preset.has_value() &&
                   this->preset.value() == climate::CLIMATE_PRESET_SLEEP;
   if (sleep_on) byte8_flags |= 0x2;
